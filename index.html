@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ダーツ料金比較マップ（エリア・早朝割対応）</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 0; color: #333; }
+  .container { max-width: 600px; margin: 0 auto; background: #f0f2f5; padding-bottom: 30px; }
+  .header { background: #1a1a1c; color: #fff; padding: 15px 20px; text-align: center; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+  .content { padding: 0 15px; }
+  #map { height: 280px; width: 100%; border-radius: 12px; margin-bottom: 20px; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.08); z-index: 1; }
+  .section-title { font-size: 13px; color: #555; margin: 0 0 8px 4px; font-weight: bold; }
+  .selectors { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .selectors::-webkit-scrollbar { display: none; }
+  .btn { flex: 1; min-width: 75px; padding: 10px 8px; border: none; background: #e4e6eb; color: #4b4f56; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 13px; text-align: center; white-space: nowrap; }
+  .btn.active { background: #0066ff; color: #fff; box-shadow: 0 2px 6px rgba(0, 102, 255, 0.4); }
+  
+  .shop-card { background: #fff; padding: 16px; border-radius: 12px; margin-bottom: 15px; display: flex; flex-direction: column; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: 0.2s; }
+  .shop-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .shop-info h3 { margin: 0 0 6px 0; font-size: 16px; line-height: 1.3; }
+  .shop-area-badge { display: inline-block; background: #eee; color: #666; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-bottom: 6px; }
+  .shop-breakdown { font-size: 12px; color: #666; margin-bottom: 4px; }
+  .shop-price { font-size: 22px; font-weight: bold; color: #ff3b30; text-align: right; min-width: 90px; }
+  .note { font-size: 11px; color: #999; margin-top: 2px; line-height: 1.4; }
+  .rank-badge { background: #ffcc00; color: #333; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 6px; vertical-align: top; display: inline-block; }
+  
+  .machine-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding-top: 10px; border-top: 1px dashed #eee; }
+  .machine-badge { font-size: 11px; padding: 4px 8px; border-radius: 20px; font-weight: bold; display: flex; align-items: center; gap: 4px; }
+  .machine-badge.dl3 { background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+  .machine-badge.dl2 { background: #f5f5f5; color: #424242; border: 1px solid #e0e0e0; }
+  .machine-badge.phx { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+  .machine-count { background: rgba(0,0,0,0.1); padding: 1px 5px; border-radius: 10px; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<div class="header">DARTS MAP TOKYO</div>
+<div class="container">
+  <div class="content">
+    <div id="map"></div>
+    
+    <div class="section-title">① 曜日・時間帯</div>
+    <div class="selectors" id="daytime-selectors">
+      <button class="btn" onclick="setDaytime('weekday_morning')">平日 朝割</button>
+      <button class="btn" onclick="setDaytime('weekend_morning')">土日祝 朝割</button>
+      <button class="btn active" onclick="setDaytime('weekday_day')">平日 昼</button>
+      <button class="btn" onclick="setDaytime('weekday_night')">平日 夜</button>
+      <button class="btn" onclick="setDaytime('weekend_day')">土日祝 昼</button>
+      <button class="btn" onclick="setDaytime('weekend_night')">土日祝 夜</button>
+    </div>
+    
+    <div class="section-title">② プレイ時間</div>
+    <div class="selectors" id="time-selectors">
+      <button class="btn" onclick="setTime('30m')">30分</button>
+      <button class="btn active" onclick="setTime('1h')">1時間</button>
+      <button class="btn" onclick="setTime('3h')">3時間</button>
+      <button class="btn" onclick="setTime('free')">フリー</button>
+    </div>
+
+    <div class="section-title">③ エリア</div>
+    <div class="selectors" id="area-selectors">
+      <button class="btn active" onclick="setArea('all')">すべて</button>
+      <button class="btn" onclick="setArea('shibuya')">渋谷</button>
+      <button class="btn" onclick="setArea('shinjuku')">新宿</button>
+      <button class="btn" onclick="setArea('ikebukuro')">池袋周辺</button>
+      <button class="btn" onclick="setArea('akihabara')">秋葉原</button>
+      <button class="btn" onclick="setArea('ueno')">上野</button>
+    </div>
+
+    <div id="shop-list"></div>
+  </div>
+</div>
+
+<script>
+let currentDaytime = 'weekday_day';
+let currentTime = '1h';
+let currentArea = 'all';
+
+// エリアの表示名マッピング
+const areaNames = {
+  shibuya: '渋谷エリア',
+  akihabara: '秋葉原エリア',
+  ueno: '上野エリア',
+  ikebukuro: '池袋周辺エリア',
+  shinjuku: '新宿エリア'
+};
+
+// --- 1. 店舗データ ---
+const shops = [
+  // ▼ 渋谷エリア
+  { id: 1, name: "バグース（BAGUS）渋谷店", area: "shibuya", type: "bar_aycp", lat: 35.659994, lng: 139.698972, charge: 0, drink: 500, pricing: { weekday_day: { rate30m: 450, pack3h: 1600, free: null }, weekday_night: { rate30m: 500, pack3h: null, free: null }, weekend_day: { rate30m: 500, pack3h: 1800, free: null }, weekend_night: { rate30m: 550, pack3h: null, free: null } }, machines: [] },
+  { id: 2, name: "EST 渋谷東口会館", area: "shibuya", type: "amusement", lat: 35.660334, lng: 139.702800, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 300, pack3h: 1100, free: null }, weekday_night: { rate30m: 400, pack3h: null, free: null }, weekend_day: { rate30m: 400, pack3h: null, free: null }, weekend_night: { rate30m: 400, pack3h: null, free: null } }, machines: [] },
+  { id: 3, name: "バグース（BAGUS）道玄坂店", area: "shibuya", type: "bar_aycp", lat: 35.659703, lng: 139.698194, charge: 0, drink: 500, pricing: { weekday_day: { rate30m: 450, pack3h: 1600, free: null }, weekday_night: { rate30m: 500, pack3h: null, free: null }, weekend_day: { rate30m: 500, pack3h: 1800, free: null }, weekend_night: { rate30m: 550, pack3h: null, free: null } }, machines: [] },
+  { id: 18, name: "カラオケ館 五反田店（学生）", area: "shibuya", type: "karaoke_student_gotanda", lat: 35.626466, lng: 139.725073, charge: 0, drink: 500, pricing: { weekday_day: { rate30m: 150, rate1h: 300, pack3h: 900, free: 980 }, weekend_day: { rate30m: 170, rate1h: 340, pack3h: 1020, free: 1180 }, weekday_night: { rate30m: 520, rate1h: 1040, pack3h: 3120, free: 770 }, weekend_night: { rate30m: 620, rate1h: 1240, pack3h: 3720, free: 1650 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 6 }, { type: 'dl2', name: 'DARTSLIVE2', count: 3 } ] },
+  
+  // ▼ 秋葉原エリア
+  { id: 4, name: "快活CLUB 秋葉原駅前店", area: "akihabara", type: "netcafe", lat: 35.699257, lng: 139.771639, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 750, rate1h: 750, pack3h: 1380, free: null }, weekday_night: { rate30m: 750, rate1h: 750, pack3h: 1380, free: null }, weekend_day: { rate30m: 750, rate1h: 750, pack3h: 1710, free: null }, weekend_night: { rate30m: 750, rate1h: 750, pack3h: 1710, free: null } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 7 } ] },
+  { id: 5, name: "GiGO 秋葉原5号館", area: "akihabara", type: "coin", lat: 35.698946, lng: 139.770672, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 0 }, weekday_night: { rate30m: 0 }, weekend_day: { rate30m: 0 }, weekend_night: { rate30m: 0 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 9 } ] },
+  { id: 6, name: "バグース（BAGUS）秋葉原店", area: "akihabara", type: "bar_aycp", lat: 35.701740, lng: 139.771180, charge: 0, drink: 500, pricing: { weekday_day: { rate30m: 430, rate1h: 860, pack3h: 1500, free: null }, weekday_night: { rate30m: 480, rate1h: 960, pack3h: null, free: 1800 }, weekend_day: { rate30m: 480, rate1h: 960, pack3h: null, free: null }, weekend_night: { rate30m: 530, rate1h: 1060, pack3h: null, free: null } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 17 }, { type: 'dl2', name: 'DARTSLIVE2', count: 2 }, { type: 'phx', name: 'VSPHOENIX S', count: 2 } ] },
+  { id: 16, name: "カラオケ館 秋葉原本店（学生）", area: "akihabara", type: "karaoke_student_akiba", lat: 35.697916, lng: 139.772309, charge: 0, drink: 420, pricing: { weekday_day: { rate30m: 100, rate1h: 200, pack3h: null, free: 1000 }, weekday_night: { rate30m: 250, rate1h: 500, pack3h: null, free: 1100 }, weekend_day: { rate30m: 220, rate1h: 440, pack3h: 1800, free: null }, weekend_night: { rate30m: 330, rate1h: 660, pack3h: null, free: 1650 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 4 } ] },
+  { id: 23, name: "SILKHAT 秋葉原", area: "akihabara", type: "coin", lat: 35.698890, lng: 139.770991, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 0 }, weekday_night: { rate30m: 0 }, weekend_day: { rate30m: 0 }, weekend_night: { rate30m: 0 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 8 } ] },
+
+  // ▼ 上野エリア
+  { id: 9, name: "カラオケ館 上野二号店（学生）", area: "ueno", type: "karaoke_student_db", lat: 35.710300, lng: 139.773754, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 140, rate1h: 280, pack3h: null, free: 980 }, weekday_night: { rate30m: 320, rate1h: 640, pack3h: null, free: 1100 }, weekend_day: { rate30m: 200, rate1h: 400, pack3h: null, free: 1500 }, weekend_night: { rate30m: 410, rate1h: 820, pack3h: null, free: 1650 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 4 }, { type: 'dl2', name: 'DARTSLIVE2', count: 4 } ] },
+  { id: 11, name: "バグース（BAGUS）上野店", area: "ueno", type: "bar_aycp", lat: 35.710354, lng: 139.774073, charge: 0, drink: 500, pricing: { weekday_day: { rate30m: 430, rate1h: 860, pack3h: null, free: null }, weekday_night: { rate30m: 480, rate1h: 960, pack3h: null, free: null }, weekend_day: { rate30m: 480, rate1h: 960, pack3h: null, free: null }, weekend_night: { rate30m: 530, rate1h: 1060, pack3h: null, free: null } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 8 }, { type: 'dl2', name: 'DARTSLIVE2', count: 2 } ] },
+  
+  // ▼ 池袋周辺エリア
+  { id: 7, name: "ダーツスタジアム 池袋店", area: "ikebukuro", type: "bar_aycp", lat: 35.732522, lng: 139.709294, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 390, rate1h: 780, pack3h: 1200, free: 1500 }, weekday_night: { rate30m: 390, rate1h: 780, pack3h: 1650, free: 1850 }, weekend_day: { rate30m: 390, rate1h: 780, pack3h: 1200, free: null }, weekend_night: { rate30m: 390, rate1h: 780, pack3h: 1650, free: 1850 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 8 }, { type: 'phx', name: 'VSPHOENIX X', count: 20 }, { type: 'phx', name: 'VSPHOENIX X-MAX', count: 3 }, { type: 'phx', name: 'VSPHOENIX 4', count: 24 }, { type: 'phx', name: 'VSPHOENIX S', count: 6 } ] },
+  { id: 12, name: "自遊空間 BIGBOX高田馬場店", area: "ikebukuro", type: "netcafe", lat: 35.712931, lng: 139.704212, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 300, rate1h: 690, pack3h: 1250, free: null }, weekday_night: { rate30m: 300, rate1h: 690, pack3h: 1250, free: null }, weekend_day: { rate30m: 330, rate1h: 780, pack3h: 1580, free: null }, weekend_night: { rate30m: 330, rate1h: 780, pack3h: 1580, free: null } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 10 } ] },
+  { id: 13, name: "グランサイバーカフェ バグース池袋店", area: "ikebukuro", type: "netcafe", lat: 35.729884, lng: 139.715686, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 400, rate1h: 850, pack3h: 1600, free: null }, weekday_night: { rate30m: 400, rate1h: 850, pack3h: 1600, free: null }, weekend_day: { rate30m: 400, rate1h: 850, pack3h: 1800, free: null }, weekend_night: { rate30m: 400, rate1h: 850, pack3h: 1800, free: null } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 6 }, { type: 'dl2', name: 'DARTSLIVE2', count: 13 } ] },
+  { id: 14, name: "自遊空間 池袋西口ROSA店", area: "ikebukuro", type: "netcafe", lat: 35.732458, lng: 139.709261, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 300, rate1h: 600, pack3h: 1450, free: null }, weekday_night: { rate30m: 300, rate1h: 600, pack3h: 1450, free: null }, weekend_day: { rate30m: 300, rate1h: 600, pack3h: 1670, free: null }, weekend_night: { rate30m: 300, rate1h: 600, pack3h: 1670, free: null } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 7 } ] },
+  { id: 15, name: "自遊空間 大塚店", area: "ikebukuro", type: "netcafe", lat: 35.732229, lng: 139.728087, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 500, rate1h: 980, pack3h: 1750, free: null }, weekday_night: { rate30m: 500, rate1h: 980, pack3h: 1750, free: null }, weekend_day: { rate30m: 500, rate1h: 980, pack3h: 1970, free: null }, weekend_night: { rate30m: 500, rate1h: 980, pack3h: 1970, free: null } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 5 } ] },
+  { id: 24, name: "DiCE 池袋店", area: "ikebukuro", type: "netcafe", lat: 35.730207, lng: 139.714177, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 500, rate1h: 950, pack3h: 1500, free: 1500 }, weekday_night: { rate30m: 500, rate1h: 950, pack3h: 1500, free: 1500 }, weekend_day: { rate30m: 550, rate1h: 1030, pack3h: 2100, free: 2200 }, weekend_night: { rate30m: 550, rate1h: 1030, pack3h: 2100, free: 2200 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 17 } ] },
+  
+  // ★ ラウンドワン 朝割データの更新（平日930円 / 土日祝990円）
+  { id: 19, name: "ラウンドワン 池袋店", area: "ikebukuro", type: "round1", lat: 35.730187, lng: 139.715162, charge: 0, drink: 350, pricing: { weekday_morning: { free: 930 }, weekend_morning: { free: 990 }, weekday_day: { rate30m: 350, pack3h: 1580, free: 1880 }, weekday_night: { rate30m: 450, pack3h: 1980, free: 2380 }, weekend_day: { rate30m: 450, pack3h: 1880, free: 2180 }, weekend_night: { rate30m: 550, pack3h: 2180, free: 2680 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 6 } ] },
+  { id: 20, name: "ラウンドワン 板橋店", area: "ikebukuro", type: "round1", lat: 35.776958, lng: 139.678683, charge: 0, drink: 350, pricing: { weekday_morning: { free: 930 }, weekend_morning: { free: 990 }, weekday_day: { rate30m: 350, pack3h: 1580, free: 1880 }, weekday_night: { rate30m: 450, pack3h: 1980, free: 2380 }, weekend_day: { rate30m: 450, pack3h: 1880, free: 2180 }, weekend_night: { rate30m: 550, pack3h: 2180, free: 2680 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 3 }, { type: 'dl2', name: 'DARTSLIVE2', count: 5 } ] },
+
+  // ▼ 新宿エリア
+  { id: 8, name: "カラオケ館 歌舞伎町本店（学生）", area: "shinjuku", type: "karaoke_student_db", lat: 35.694508, lng: 139.701570, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 180, rate1h: 360, pack3h: 1080, free: 980 }, weekday_night: { rate30m: 380, rate1h: 760, pack3h: 2280, free: 770 }, weekend_day: { rate30m: 240, rate1h: 480, pack3h: 1440, free: 1420 }, weekend_night: { rate30m: 475, rate1h: 950, pack3h: 2850, free: 1650 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 3 } ] },
+  { id: 17, name: "カラオケ館 西武新宿駅前店（学生）", area: "shinjuku", type: "karaoke_student_db", lat: 35.695405, lng: 139.700385, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 180, rate1h: 360, pack3h: 1080, free: 980 }, weekday_night: { rate30m: 380, rate1h: 760, pack3h: 2280, free: 770 }, weekend_day: { rate30m: 240, rate1h: 480, pack3h: 1440, free: 1420 }, weekend_night: { rate30m: 475, rate1h: 950, pack3h: 2850, free: 1650 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 2 }, { type: 'dl2', name: 'DARTSLIVE2', count: 1 } ] },
+  { id: 21, name: "GiGO POKER 新宿 (時間制エリア)", area: "shinjuku", type: "amusement", lat: 35.695408, lng: 139.701420, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 400, pack3h: null, free: null }, weekday_night: { rate30m: 400, pack3h: null, free: null }, weekend_day: { rate30m: 400, pack3h: null, free: null }, weekend_night: { rate30m: 400, pack3h: null, free: null } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 4 } ] },
+  { id: 22, name: "GiGO POKER 新宿 (コイン制エリア)", area: "shinjuku", type: "coin", lat: 35.695408, lng: 139.701420, charge: 0, drink: 0, pricing: { weekday_day: { rate30m: 0 }, weekday_night: { rate30m: 0 }, weekend_day: { rate30m: 0 }, weekend_night: { rate30m: 0 } }, machines: [ { type: 'dl3', name: 'DARTSLIVE3', count: 2 }, { type: 'phx', name: 'VSPHOENIX X', count: 2 } ] }
+];
+
+// --- 2. 料金計算ロジック ---
+function calculatePrice(shop, daytime, time) {
+  // 朝割ボタンが押された場合、朝割設定のない店舗は「昼」として処理するためのフォールバック
+  let targetDaytime = daytime;
+  if (daytime === 'weekday_morning' && !shop.pricing.weekday_morning) {
+    targetDaytime = 'weekday_day';
+  } else if (daytime === 'weekend_morning' && !shop.pricing.weekend_morning) {
+    targetDaytime = 'weekend_day';
+  }
+
+  // --- コイン制 ---
+  if (shop.type === "coin") {
+    let total = 0; let breakdown = "";
+    if (time === '30m') { total = 300; breakdown = "100円×3ゲーム目安"; }
+    else if (time === '1h') { total = 600; breakdown = "100円×6ゲーム目安"; }
+    else if (time === '3h') { total = 1800; breakdown = "100円×18ゲーム目安"; }
+    else if (time === 'free') { return { total: 999999, text: "-", breakdown: "設定なし" }; }
+    return { total: total, text: `¥${total.toLocaleString()}`, breakdown: breakdown };
+  }
+
+  // ★ ラウンドワンの賢い朝割ロジック（修正版）
+  if (shop.type === 'round1') {
+    // 基準となる昼料金を取得（週末か平日か）
+    let normalDaytime = targetDaytime.includes('weekend') ? 'weekend_day' : 'weekday_day';
+    let normalP = shop.pricing[normalDaytime];
+    
+    // 朝割のデータがあれば取得
+    let morningP = targetDaytime.includes('morning') ? shop.pricing[targetDaytime] : null;
+    let isMorning = !!morningP;
+    
+    let fixedCost = shop.drink || 350; // 通常のワンオーダー目安
+    let rate1h = normalP.rate1h || (normalP.rate30m * 2);
+    
+    let total = 0; let breakdown = "";
+
+    // まず通常の時間料金として計算
+    if (time === '30m') { 
+      total = fixedCost + normalP.rate30m; 
+      breakdown = `1D目安 ¥${fixedCost} + 30分 ¥${normalP.rate30m}`; 
+    }
+    else if (time === '1h') { 
+      total = fixedCost + rate1h; 
+      breakdown = `1D目安 ¥${fixedCost} + 1h ¥${rate1h}`; 
+    }
+    else if (time === '3h') {
+      if (normalP.pack3h) { 
+        total = fixedCost + normalP.pack3h; 
+        breakdown = `1D目安 ¥${fixedCost} + 3h目安 ¥${normalP.pack3h}`; 
+      } else { 
+        total = fixedCost + (rate1h * 3); 
+        breakdown = `1D目安 ¥${fixedCost} + 通常(1h×3) ¥${rate1h * 3}`; 
+      }
+    }
+    else if (time === 'free') {
+      if (normalP.free) { 
+        total = fixedCost + normalP.free; 
+        breakdown = `1D目安 ¥${fixedCost} + フリー ¥${normalP.free}`; 
+      } else { 
+        total = 999999; breakdown = "設定なし"; 
+      }
+    }
+
+    // 朝割（ドリンクバー込みフリータイム）の方が安ければ上書きする処理
+    if (isMorning && morningP && morningP.free) {
+      if (time === 'free' || morningP.free < total) {
+        total = morningP.free;
+        let suffix = time === 'free' ? "" : " (※通常より朝割が安いため適用)";
+        breakdown = `朝割Dバー込フリー ¥${morningP.free}${suffix}`;
+      }
+    }
+
+    if (total === 999999) return { total: 999999, text: "-", breakdown: breakdown };
+    return { total: total, text: `¥${total.toLocaleString()}`, breakdown: breakdown };
+  }
+
+  // --- カラオケ館 秋葉原（学生） ---
+  if (shop.type === 'karaoke_student_akiba') {
+    let total = 0; let breakdown = ""; const p = shop.pricing[targetDaytime];
+    let fixedCost = shop.drink || 420; 
+    let fixedText = `1D代目安 ¥${fixedCost} + `;
+    let rate1h = p.rate1h || (p.rate30m * 2);
+
+    if (time === '30m') { total = fixedCost + p.rate30m; breakdown = fixedText + `30分 ¥${p.rate30m}`; }
+    else if (time === '1h') { total = fixedCost + rate1h; breakdown = fixedText + `1h ¥${rate1h}`; }
+    else if (time === '3h') {
+      if (p.pack3h) { total = p.pack3h; breakdown = `Dバー込3hパック ¥${p.pack3h}`; }
+      else { total = fixedCost + (rate1h * 3); breakdown = fixedText + `通常(1h×3) ¥${rate1h * 3}`; }
+    }
+    else if (time === 'free') {
+      if (p.free) { total = p.free; breakdown = `ドリンクバー込 ¥${p.free}`; }
+      else { return { total: 999999, text: "-", breakdown: "設定なし" }; }
+    }
+    return { total: total, text: `¥${total.toLocaleString()}`, breakdown: breakdown };
+  }
+
+  // --- カラオケ館 五反田（学生） ---
+  if (shop.type === 'karaoke_student_gotanda') {
+    let total = 0; let breakdown = ""; const p = shop.pricing[targetDaytime];
+    let isNight = targetDaytime.includes('night');
+    
+    if (time === 'free') {
+      if (p.free) { return { total: p.free, text: `¥${p.free.toLocaleString()}`, breakdown: `ドリンクバー込 ¥${p.free}` }; } 
+      else return { total: 999999, text: "-", breakdown: "設定なし" };
+    }
+    
+    let fixedCost = isNight ? 500 : 0; 
+    let fixedText = fixedCost > 0 ? `1D代目安 ¥${fixedCost} + ` : `Dバー込 `;
+    let rate1h = p.rate1h || (p.rate30m * 2);
+    
+    if (time === '30m') { total = fixedCost + p.rate30m; breakdown = fixedText + `30分 ¥${p.rate30m}`; }
+    else if (time === '1h') { total = fixedCost + rate1h; breakdown = fixedText + `1h ¥${rate1h}`; }
+    else if (time === '3h') {
+       if (p.pack3h) { total = fixedCost + p.pack3h; breakdown = fixedText + `3hパック ¥${p.pack3h}`; }
+       else { total = fixedCost + (rate1h * 3); breakdown = fixedText + `通常(1h×3) ¥${rate1h * 3}`; }
+    }
+    return { total: total, text: `¥${total.toLocaleString()}`, breakdown: breakdown };
+  }
+
+  // --- 通常店舗 ---
+  let total = 0; let breakdown = ""; const p = shop.pricing[targetDaytime];
+  let fixedCost = (shop.charge || 0) + (shop.drink || 0);
+  let fixedText = fixedCost > 0 ? `D代等 ¥${fixedCost} + ` : "";
+  let rate1h = p.rate1h || (p.rate30m * 2);
+
+  if (time === '30m') { 
+    total = fixedCost + p.rate30m;
+    breakdown = fixedText + (p.rate30m === rate1h ? `最初の60分 ¥${p.rate30m}` : `30分 ¥${p.rate30m}`);
+  } 
+  else if (time === '1h') { total = fixedCost + rate1h; breakdown = fixedText + `1h ¥${rate1h}`; } 
+  else if (time === '3h') {
+    if (p.pack3h) { total = fixedCost + p.pack3h; breakdown = fixedText + `3hパック等 ¥${p.pack3h}`; } 
+    else { total = fixedCost + (rate1h * 3); breakdown = fixedText + `通常(1h×3) ¥${rate1h * 3}`; }
+  } 
+  else if (time === 'free') {
+    if (p.free) { total = fixedCost + p.free; breakdown = fixedText + `フリータイム ¥${p.free}`; } 
+    else { return { total: 999999, text: "-", breakdown: "設定なし" }; }
+  }
+  return { total: total, text: `¥${total.toLocaleString()}`, breakdown: breakdown };
+}
+
+// --- 3. 地図の設定 ---
+let map = L.map('map').setView([35.705, 139.730], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+let markerObjects = []; 
+
+// --- 4. 画面更新処理 ---
+function updateDisplay() {
+  let targetShops = shops;
+  if (currentArea !== 'all') {
+    targetShops = shops.filter(shop => shop.area === currentArea);
+  }
+
+  const results = targetShops.map(shop => {
+    const calc = calculatePrice(shop, currentDaytime, currentTime);
+    return { ...shop, calculatedTotal: calc.total, priceText: calc.text, breakdown: calc.breakdown };
+  }).sort((a, b) => a.calculatedTotal - b.calculatedTotal);
+
+  const listDiv = document.getElementById('shop-list');
+  listDiv.innerHTML = ""; 
+  
+  markerObjects.forEach(m => map.removeLayer(m)); 
+  markerObjects = [];
+
+  results.forEach((shop, index) => {
+    const isCheapest = index === 0;
+    const rank = (isCheapest && shop.calculatedTotal !== 999999) ? `<span class="rank-badge">最安</span>` : "";
+    const isUnavailable = shop.calculatedTotal === 999999;
+    const cardStyle = isUnavailable ? "opacity: 0.5;" : "";
+
+    let machinesHtml = "";
+    if (shop.machines && shop.machines.length > 0) {
+      machinesHtml = `<div class="machine-list">`;
+      shop.machines.forEach(m => {
+        let countHtml = m.count ? `<span class="machine-count">${m.count}台</span>` : "";
+        machinesHtml += `<span class="machine-badge ${m.type}">${m.name} ${countHtml}</span>`;
+      });
+      machinesHtml += `</div>`;
+    }
+
+    let specialNote = "";
+    if (currentDaytime.includes('morning') && !shop.pricing[currentDaytime]) {
+       specialNote += `<div class="note" style="color: #ff9900; font-weight: bold;">※朝割設定なしのため、通常昼料金等で計算しています。</div>`;
+    }
+    
+    if (shop.name.includes("GiGO POKER 新宿")) {
+      specialNote += `<div class="note" style="color: #0066ff;">※同一店舗内で料金体系が分かれているため、疑似的に2店舗として表示しています。</div>`;
+    } else if (shop.id === 24) {
+      specialNote += `<div class="note" style="color: #0066ff; font-weight: bold;">※ドリンクバー込み。1hは延長料金加算で計算。平日3hはパックよりフリータイムが安いためフリータイム額を適用。</div>`;
+    } else if (shop.type === 'round1') {
+      specialNote += `<div class="note" style="color: #0066ff; font-weight: bold;">※朝割(ドリンクバー込)は11時まで受付限定。それ以外はワンオーダー制(350円目安)で計算。</div>`;
+    } else if (shop.type === 'karaoke_student_gotanda') {
+      specialNote += `<div class="note" style="color: #ff3b30; font-weight: bold;">※学生専用料金（昼と夜フリータイムはドリンクバー込）。<br>★夜の30分/1hは学生枠が無いため会員料金＋1Dで計算。</div>`;
+    } else if (shop.type === 'karaoke_student_db') {
+      specialNote += `<div class="note" style="color: #ff3b30; font-weight: bold;">※学生専用料金（全時間帯ドリンクバー込）。</div>`;
+    } else if (shop.type === 'karaoke_student_akiba') {
+      specialNote += `<div class="note" style="color: #ff3b30; font-weight: bold;">※学生専用料金。<br>※フリータイム・週末昼3hはDバー込。他は別途1Dで計算。</div>`;
+    } else if (shop.type === 'netcafe') {
+      specialNote += `<div class="note" style="color: #0066ff; font-weight: bold;">※ドリンクバー料金込み</div>`;
+    }
+
+    listDiv.innerHTML += `
+      <div class="shop-card" style="${cardStyle}">
+        <div class="shop-card-top">
+          <div class="shop-info">
+            <span class="shop-area-badge">${areaNames[shop.area]}</span>
+            <h3>${rank}${shop.name}</h3>
+            <div class="shop-breakdown">${shop.breakdown}</div>
+            ${shop.drink > 0 && currentTime !== 'free' && !['karaoke_student_akiba', 'karaoke_student_gotanda', 'round1'].includes(shop.type) ? `<div class="note">※ドリンク代目安500円含む</div>` : ''}
+            ${shop.type === 'coin' ? `<div class="note">※1ゲーム100円で計算した概算</div>` : ''}
+            ${specialNote}
+          </div>
+          <div class="shop-price">${shop.priceText}</div>
+        </div>
+        ${machinesHtml}
+      </div>
+    `;
+
+    if (shop.lat && shop.lng && !isUnavailable) {
+      let marker = L.marker([shop.lat, shop.lng]).addTo(map);
+      marker.bindPopup(`<b>${shop.name}</b><br>総額: ${shop.priceText}`);
+      if (isCheapest) marker.openPopup();
+      markerObjects.push(marker);
+    }
+  });
+
+  if (markerObjects.length > 0) {
+    let group = new L.featureGroup(markerObjects);
+    map.fitBounds(group.getBounds(), { padding: [30, 30], maxZoom: 15 });
+  }
+}
+
+function setDaytime(val) {
+  document.querySelectorAll('#daytime-selectors .btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  currentDaytime = val; updateDisplay();
+}
+
+function setTime(val) {
+  document.querySelectorAll('#time-selectors .btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  currentTime = val; updateDisplay();
+}
+
+function setArea(val) {
+  document.querySelectorAll('#area-selectors .btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  currentArea = val; updateDisplay();
+}
+
+window.onload = () => { updateDisplay(); };
+</script>
+</body>
+</html>
